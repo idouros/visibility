@@ -1,33 +1,36 @@
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 import datetime
-import csv
+
+#def date_strings_to_timestamps(training_data):
+
 
 def main():
 
     X_cols = ['date','Energy (Wh)','lightFixtures','KitchenTemp','KitchenHumidity','LivingRoomTemp','LivingRoomHumidity','LaundryTemp','LaundryHumidity','OfficeRoomTemp','OfficeRoomHumidity','BathRoomTemp','BathRoomHumidity','NorthSideTemp','NorthSideHumidity','IroningRoomTemp','BedRoom1Humidity','BedRoom1RoomTemp','BedRoom1Humidity.1','BedRoom2Temp','BedRoom2Humidity','OutsideTemp','Pressure','OutsideHumdity','Windspeed','Tdewpoint','RandomVariable1','RandomVariable2']
     Y_col = 'Visibility'
 
-    # Training the multivariate regression
+    # Get the training data
     training_data_filename = "./dataset/train.csv"
     training_data = pd.read_csv(training_data_filename)
 
-    # Convert date strings to timestamps
+    # Prepare the data, part 1: Convert date strings to timestamps
     dates = pd.array(training_data['date'], dtype="string")
     timestamps = []
     for date in dates:
         timestamps.append(datetime.datetime.strptime(date, "%Y-%m-%d %H:%M:%S").timestamp())
     training_data['date'] = timestamps
 
+    # Prepare the data, part 2: Remove invalid traning data (with predicate missing)
+    training_data = training_data.loc[training_data[Y_col].notnull()]
 
-    X = training_data[X_cols].iloc[1:11840]
-    y = training_data[Y_col].iloc[1:11840]
-
-
+    # Train the regression
+    num_rows = training_data.shape[0]
+    X = training_data[X_cols].iloc[1:num_rows]
+    y = training_data[Y_col].iloc[1:num_rows]
     regression = RandomForestRegressor(max_depth=2, random_state=0).fit(X, y)
-    
 
-    # Testing
+    # Test
     test_data_filename = "./dataset/test.csv"
     test_data = pd.read_csv(test_data_filename)
     test_dates = pd.array(test_data['date'], dtype="string")
@@ -35,21 +38,14 @@ def main():
     for date in test_dates:
         test_timestamps.append(datetime.datetime.strptime(date, "%Y-%m-%d %H:%M:%S").timestamp())
     test_data['date'] = test_timestamps
-
-
     predictions = regression.predict(test_data)
 
-    with open('./submission.csv', 'w') as f:
-     
-        # using csv.writer method from CSV package
-        write = csv.writer(f)
-        
-        write.writerow(predictions)
+    # Output the results in the specified format (as per sample_submission.csv)
+    test_dates_out = pd.DataFrame(test_dates, columns=['date'])
+    predicted_visibilities = pd.DataFrame(predictions, columns=['Visibility'])
+    predictions_out = pd.concat([test_dates_out, predicted_visibilities], ignore_index=False, axis=1)
+    predictions_out.to_csv('submission.csv', index=False)
 
-    
-    
-
-    # (this is where we put the predicions in the desired format and save into submission.csv for uploading)
 
 if __name__ == "__main__":
     main()
